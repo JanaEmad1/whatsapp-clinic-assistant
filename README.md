@@ -12,7 +12,9 @@ and English, and it does three things:
    when the patient asks for a person. The receptionist gets a WhatsApp alert and the bot stays silent in
    that chat until the receptionist gives it back.
 
-> 🎥 **Demo video:** _(add the link to the 60–90 s screen recording here)_
+<p align="center"><img src="docs/demo.gif" width="720" alt="Demo: the bot answers in Kuwaiti dialect, books a cleaning appointment after confirmation, and hands a toothache question and an unknown question to reception"></p>
+
+<p align="center"><sub>WhatsApp-style browser demo (<code>/demo</code>) running the real bot, sped up. Left: the patient. Right: the reception desk receiving handoffs.</sub></p>
 
 It reuses the design of [FinPilot](https://github.com/JanaEmad1/finpilot): the code decides what to do, the
 LLM only phrases the answer, every number is checked against the facts, and a release gate runs in CI.
