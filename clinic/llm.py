@@ -37,19 +37,22 @@ def available() -> bool:
 def generate(question: str, facts: str, timeout: float = 20.0) -> str | None:
     if not available():
         return None
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent"
     body = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "contents": [{"role": "user", "parts": [{"text": f"FACTS:\n{facts}\n\nPATIENT MESSAGE:\n{question}"}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 400,
-                             "thinkingConfig": {"thinkingBudget": 0}},
+        # generous token budget: newer Flash models spend part of it "thinking" before replying
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
     }
-    try:
-        response = httpx.post(url, json=body, timeout=timeout,
-                              headers={"x-goog-api-key": config.GEMINI_API_KEY})
-        response.raise_for_status()
-        return response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except (httpx.HTTPError, KeyError, IndexError) as exc:
-        # never crash the chat because the LLM is down — the agent falls back to the article
-        log.warning("Gemini call failed: %s", exc)
-        return None
+    # free-tier quotas are per model (a few requests/minute), so a busy or rate-limited
+    # main model falls through to the fallback model before giving up
+    for model in dict.fromkeys(m for m in (config.GEMINI_MODEL, config.GEMINI_FALLBACK_MODEL) if m):
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        try:
+            response = httpx.post(url, json=body, timeout=timeout,
+                                  headers={"x-goog-api-key": config.GEMINI_API_KEY})
+            response.raise_for_status()
+            return response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except (httpx.HTTPError, KeyError, IndexError) as exc:
+            # never crash the chat because the LLM is down — the agent falls back to the article
+            log.warning("Gemini call failed (%s): %s", model, exc)
+    return None

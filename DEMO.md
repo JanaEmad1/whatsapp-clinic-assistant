@@ -6,9 +6,13 @@ One 60–90 second screen recording of a real WhatsApp chat, reused three ways.
 
 - Put `GEMINI_API_KEY` in `.env` so the replies sound natural (without it the bot pastes whole articles).
 - Run `python -m data.seed` so the calendar is fresh.
-- Start `uvicorn clinic.api:app --port 8000` and `ngrok http 8000`, then set the Twilio sandbox webhook.
-- If you can, set `STAFF_WHATSAPP` to a second phone so the receptionist alert appears in the video.
-- Phone: Do Not Disturb on, and rename the sandbox contact to "عيادة بسمة ونضارة".
+- Start `uvicorn clinic.api:app --port 8000` and `ngrok http 8000`, then set the webhook. Use the Meta Cloud API
+  steps in the README (free test number), or Twilio where its trial is available.
+- If you can, set `STAFF_WHATSAPP` to a second phone so the receptionist alert appears in the video. Send one
+  message from that phone to the bot first, so the alert can be delivered.
+- The free Gemini tier allows only a few requests per minute. Pause about 10 s between questions; booking steps
+  don't use Gemini.
+- Phone: Do Not Disturb on, and save the bot's number as a contact named "عيادة بسمة ونضارة".
 - Record with the phone's built-in screen recorder, or show WhatsApp Web next to the terminal logs.
 
 ## Script (about 75 s)

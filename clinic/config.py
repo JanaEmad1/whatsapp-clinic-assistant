@@ -31,7 +31,8 @@ REPORTS_DIR = ROOT / "reports"
 TZ = timezone(timedelta(hours=3), "Asia/Kuwait")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-flash-lite-latest")
 
 # Twilio WhatsApp (sandbox or a real sender). Without them the bot still works over /chat.
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
@@ -39,7 +40,13 @@ TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")  # sandbox number
 # Public URL Twilio calls (e.g. your ngrok https URL + /whatsapp); needed to check signatures.
 PUBLIC_WEBHOOK_URL = os.getenv("PUBLIC_WEBHOOK_URL", "")
-# The receptionist's WhatsApp number, e.g. whatsapp:+965XXXXXXXX. Gets a message on every handoff.
+# Meta WhatsApp Cloud API (free test number from developers.facebook.com). Used instead of Twilio when set.
+META_ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN", "")
+META_PHONE_NUMBER_ID = os.getenv("META_PHONE_NUMBER_ID", "")
+META_APP_SECRET = os.getenv("META_APP_SECRET", "")      # checks the X-Hub-Signature-256 header
+META_VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN", "")  # any string; typed again in the Meta dashboard
+
+# The receptionist's WhatsApp number (any format: +20…, 20…, whatsapp:+20…). Gets a message on every handoff.
 STAFF_WHATSAPP = os.getenv("STAFF_WHATSAPP", "")
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 

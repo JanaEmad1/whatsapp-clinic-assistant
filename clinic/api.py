@@ -1,5 +1,6 @@
 """HTTP API.  Run:  uvicorn clinic.api:app --reload
 
+    GET  /meta, POST /meta              Meta WhatsApp Cloud API webhook (verify, then messages)
     POST /whatsapp                      Twilio webhook (form-encoded), replies with TwiML
     POST /chat                          JSON, for local testing without WhatsApp
     GET  /health
@@ -13,10 +14,11 @@ import re
 import time
 from functools import lru_cache
 
-from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
-from clinic import config, handoff, llm, whatsapp
+from clinic import config, handoff, llm, meta_whatsapp, whatsapp
 from clinic.agent import Agent
 from clinic.db import get_engine
 
@@ -37,7 +39,27 @@ class ChatRequest(BaseModel):
 
 @lru_cache(maxsize=1)
 def get_agent() -> Agent:
-    return Agent(get_engine(), notify=whatsapp.send_message)
+    # staff alerts go out on whichever WhatsApp channel is configured
+    notify = meta_whatsapp.send_message if meta_whatsapp.configured() else whatsapp.send_message
+    return Agent(get_engine(), notify=notify)
+
+
+def _digits(number: str) -> str:
+    return "".join(ch for ch in number if ch.isdigit())
+
+
+def _is_staff(sender: str) -> bool:
+    return bool(config.STAFF_WHATSAPP) and _digits(sender) == _digits(config.STAFF_WHATSAPP)
+
+
+def _staff_release(body: str) -> str | None:
+    """The receptionist gives a chat back to the bot by sending "done <id>"."""
+    m = STAFF_RELEASE.match(body)
+    if not m:
+        return None
+    released = handoff.release(get_engine(), int(m.group(1)), get_agent().clock())
+    return (f"✅ Handoff #{m.group(1)} closed — the bot is answering {released} again." if released
+            else f"No handoff #{m.group(1)} found.")
 
 
 def _handle(phone: str, message: str, name: str) -> dict:
@@ -55,7 +77,8 @@ def health() -> dict:
     agent = get_agent()
     return {"status": "ok", "answer_threshold": agent.threshold, "articles": len(agent.retriever.articles),
             "llm": "gemini" if llm.available() else "template-only",
-            "whatsapp": "twilio" if config.TWILIO_ACCOUNT_SID else "not configured"}
+            "whatsapp": "meta" if meta_whatsapp.configured() else "twilio" if config.TWILIO_ACCOUNT_SID
+            else "not configured"}
 
 
 @app.post("/chat")
@@ -77,15 +100,48 @@ async def whatsapp_webhook(request: Request) -> Response:
     if not phone or not body:
         return Response(whatsapp.twiml(None), media_type="application/xml")
 
-    # the receptionist gives a chat back to the bot by sending "done <id>"
-    if config.STAFF_WHATSAPP and sender == config.STAFF_WHATSAPP and (m := STAFF_RELEASE.match(body)):
-        released = handoff.release(get_engine(), int(m.group(1)), get_agent().clock())
-        text = f"✅ Handoff #{m.group(1)} closed — the bot is answering {released} again." if released \
-            else f"No handoff #{m.group(1)} found."
+    if _is_staff(sender) and (text := _staff_release(body)):
         return Response(whatsapp.twiml(text), media_type="application/xml")
 
     result = _handle(phone, body, form.get("ProfileName", ""))
     return Response(whatsapp.twiml(result["answer"]), media_type="application/xml")
+
+
+# ---------------------------------------------------------------- Meta WhatsApp Cloud API
+_seen_message_ids: set[str] = set()  # Meta retries a webhook if it's slow, so ignore repeats
+
+
+@app.get("/meta")
+def meta_verify(request: Request) -> PlainTextResponse:
+    """One-time handshake when you save the webhook URL in the Meta app dashboard."""
+    q = request.query_params
+    if (q.get("hub.mode") == "subscribe" and config.META_VERIFY_TOKEN
+            and q.get("hub.verify_token") == config.META_VERIFY_TOKEN):
+        return PlainTextResponse(q.get("hub.challenge", ""))
+    raise HTTPException(403, "verify token mismatch")
+
+
+def _reply_meta(msg: meta_whatsapp.Incoming) -> None:
+    if _is_staff(msg.phone) and (text := _staff_release(msg.text)):
+        meta_whatsapp.send_message(msg.phone, text)
+        return
+    result = _handle("+" + msg.phone, msg.text, msg.name)
+    if result["answer"]:  # empty while a human owns the chat
+        meta_whatsapp.send_message(msg.phone, result["answer"])
+
+
+@app.post("/meta")
+async def meta_webhook(request: Request, background: BackgroundTasks) -> dict:
+    raw = await request.body()
+    if config.META_APP_SECRET and not meta_whatsapp.signature_ok(
+            raw, request.headers.get("X-Hub-Signature-256", ""), config.META_APP_SECRET):
+        raise HTTPException(403, "bad Meta signature")
+    for msg in meta_whatsapp.parse(await request.json()):
+        if msg.message_id in _seen_message_ids:
+            continue
+        _seen_message_ids.add(msg.message_id)
+        background.add_task(_reply_meta, msg)  # answer Meta with 200 now, reply right after
+    return {"status": "ok"}
 
 
 def _check_admin(token: str | None) -> None:

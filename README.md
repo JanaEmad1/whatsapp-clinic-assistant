@@ -65,7 +65,7 @@ messages, so treat these numbers as optimistic until real chats are added.
 python -m venv .venv && .venv/Scripts/activate      # Windows; on Mac/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 python -m data.seed            # creates data/clinic.db (doctors, shifts, services, busy calendar)
-pytest                         # 37 tests, offline
+pytest                         # 44 tests, offline
 python -m eval.run             # writes reports/eval.md
 python -m clinic.cli           # chat in the terminal
 uvicorn clinic.api:app --reload
@@ -79,7 +79,32 @@ curl -X POST localhost:8000/chat -H "content-type: application/json" \
      -d '{"phone": "+96550001234", "message": "بكم تنظيف الأسنان؟"}'
 ```
 
-### Connect WhatsApp (Twilio sandbox, ~10 minutes)
+### Connect WhatsApp — option A: Meta WhatsApp Cloud API (free test number, ~20 minutes)
+
+Works in countries where Twilio trials aren't offered. Meta gives every developer app a free test business number
+that can chat with up to 5 phone numbers you verify, and no payment method is needed.
+
+1. At [developers.facebook.com](https://developers.facebook.com), go to **My Apps → Create app**, choose the
+   **Business** type, and add the **WhatsApp** product.
+2. Open **WhatsApp → API Setup**:
+   - Copy the **temporary access token**, which lasts 24 h, into `META_ACCESS_TOKEN`.
+   - Copy the **Phone number ID** into `META_PHONE_NUMBER_ID`.
+   - Under **To**, add your phone and verify it with the code WhatsApp sends. Add the receptionist's phone too.
+3. Open **App settings → Basic** and copy the **App secret** into `META_APP_SECRET`. Set `META_VERIFY_TOKEN` to any
+   string you choose. Optionally set `STAFF_WHATSAPP` to the receptionist's number.
+4. Start the API with `uvicorn clinic.api:app --port 8000`, then run `ngrok http 8000`. If ngrok is blocked for
+   you, use `cloudflared tunnel --url http://localhost:8000` instead.
+5. Open **WhatsApp → Configuration → Webhook**:
+   - Set the callback URL to `https://<your-tunnel>/meta` and the verify token to your `META_VERIFY_TOKEN`.
+   - Click **Verify and save**, then subscribe to **messages**.
+6. On **API Setup**, click **Send message** once. This sends a "hello_world" message from the test number to your phone.
+   Reply «السلام عليكم» in that chat.
+7. The receptionist must message the test number once before the demo. WhatsApp only delivers free-form messages,
+   including handoff alerts, within 24 h of the person's last message.
+
+Each time the temporary token expires, paste a new one into `.env`, or create a permanent System User token in Business Settings.
+
+### Connect WhatsApp — option B: Twilio sandbox (~10 minutes)
 
 1. Create a free Twilio account. Go to **Messaging → Try it out → Send a WhatsApp message**, and from your
    phone send the `join <code>` message it shows to the sandbox number.
