@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Secrets — never commit API keys
+.env
+
+# Generated (recreated by python -m data.seed)
+data/*.db

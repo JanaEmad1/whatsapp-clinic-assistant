@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Unit tests (offline, no API keys needed)
+        run: pytest
+      - name: Evaluation gate — no wrong answers, route accuracy >= 90%
+        run: python -m eval.run --gate
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t clinic-assistant .
+      - name: Smoke test the running container
+        run: |
+          docker run -d -p 8000:8000 --name clinic clinic-assistant
+          for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 2; done
+          curl -sf -X POST localhost:8000/chat -H 'content-type: application/json' \
+               -d '{"phone": "+96550001234", "message": "how much is teeth cleaning?"}'
