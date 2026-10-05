@@ -40,3 +40,14 @@ def test_staff_can_release_a_handoff_over_whatsapp(agent, monkeypatch):
     r = client.post("/whatsapp", data={"From": "whatsapp:+96511112222", "Body": f"done {hid}"})
     assert "closed" in r.text
     assert agent.chat("+96560001111", "مرحبا").route == "smalltalk"
+
+
+def test_demo_page_only_exposes_demo_chats(agent, monkeypatch):
+    client = _client(agent, monkeypatch)
+    assert client.get("/demo").status_code == 200
+    real = agent.chat("+96560001111", "ابي اكلم موظف").handoff_id
+    demo = agent.chat("+99912345678", "ابي اكلم موظف").handoff_id
+    assert [h["id"] for h in client.get("/demo/handoffs").json()] == [demo]
+    assert client.post(f"/demo/handoffs/{real}/release").status_code == 404
+    assert client.post(f"/demo/handoffs/{demo}/release").status_code == 200
+    assert agent.chat("+99912345678", "مرحبا").route == "smalltalk"

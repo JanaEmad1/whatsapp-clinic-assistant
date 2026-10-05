@@ -47,7 +47,7 @@ def seed(engine: Engine, busy_days: int = 14, rng_seed: int = 7) -> None:
     create_schema(engine)
     rng = random.Random(rng_seed)
     with engine.begin() as conn:
-        for table in ("appointments", "shifts", "services", "doctors"):
+        for table in ("appointments", "handoffs", "conversations", "shifts", "services", "doctors"):
             conn.execute(text(f"DELETE FROM {table}"))
         conn.execute(text("INSERT INTO doctors VALUES (:id, :ar, :en, :dep)"),
                      [dict(id=i, ar=a, en=e, dep=d) for i, a, e, d in DOCTORS])

@@ -65,7 +65,7 @@ messages, so treat these numbers as optimistic until real chats are added.
 python -m venv .venv && .venv/Scripts/activate      # Windows; on Mac/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 python -m data.seed            # creates data/clinic.db (doctors, shifts, services, busy calendar)
-pytest                         # 44 tests, offline
+pytest                         # 45 tests, offline
 python -m eval.run             # writes reports/eval.md
 python -m clinic.cli           # chat in the terminal
 uvicorn clinic.api:app --reload
@@ -78,6 +78,12 @@ bot still works and replies with the article text.
 curl -X POST localhost:8000/chat -H "content-type: application/json" \
      -d '{"phone": "+96550001234", "message": "بكم تنظيف الأسنان؟"}'
 ```
+
+### Try it in the browser
+
+Open **http://localhost:8000/demo** for a WhatsApp-style chat with the real bot, plus a **Reception** panel where
+handoffs appear and staff can hand the chat back. No WhatsApp account is needed. Demo chats use fake `+999` numbers,
+and the demo routes only show those chats.
 
 ### Connect WhatsApp — option A: Meta WhatsApp Cloud API (free test number, ~20 minutes)
 
@@ -137,7 +143,9 @@ clinic/
   handoff.py      human takeover, staff alert, release
   whatsapp.py     Twilio signature check, TwiML, outbound messages
   text.py         Arabic normalisation (hamza, ta marbuta, Arabic-Indic digits)
-  api.py          FastAPI: /whatsapp, /chat, /health, /admin/handoffs
+  api.py          FastAPI: /whatsapp, /meta, /chat, /demo, /health, /admin/handoffs
+  meta_whatsapp.py  Meta WhatsApp Cloud API: webhook verification, signature check, sending
+  static/demo.html  WhatsApp-style browser demo with a reception panel
   cli.py          terminal chat
   kb/*.md         the clinic's information: 14 short articles, Arabic + English
 data/seed.py      fictional clinic: 3 doctors, shifts, 10 bookable services

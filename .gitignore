@@ -9,3 +9,6 @@ __pycache__/
 
 # Generated (recreated by python -m data.seed)
 data/*.db
+
+# Local editor/agent settings
+.claude/

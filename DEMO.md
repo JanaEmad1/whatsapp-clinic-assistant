@@ -2,7 +2,21 @@
 
 One 60–90 second screen recording of a real WhatsApp chat, reused three ways.
 
-## Before recording
+## Fastest way: the browser demo (no WhatsApp account needed)
+
+1. Run `.venv\Scripts\python -m data.seed`, then `.venv\Scripts\python -m uvicorn clinic.api:app --port 8000`.
+2. Open **http://localhost:8000/demo**. The patient chat is on the left and the **Reception** panel on the right.
+   Handoffs pop up in the panel, and **Done** gives the chat back to the bot.
+3. Record the browser window with **Win + Alt + R** (Xbox Game Bar) or OBS, and type the script below.
+   - Add `?chips=0` to the URL to hide the suggestion buttons.
+   - Click **↺ new chat** to start over.
+4. In posts, call it a **"WhatsApp-style demo"**. The replies, bookings and handoffs come from the real bot, and the
+   same bot connects to real WhatsApp through the `/meta` or `/whatsapp` webhook.
+
+To record on your phone instead, run uvicorn with `--host 0.0.0.0` and open `http://<your-PC-IP>:8000/demo` on a phone
+connected to the same Wi-Fi.
+
+## Before recording on real WhatsApp
 
 - Put `GEMINI_API_KEY` in `.env` so the replies sound natural (without it the bot pastes whole articles).
 - Run `python -m data.seed` so the calendar is fresh.

@@ -3,6 +3,7 @@
     GET  /meta, POST /meta              Meta WhatsApp Cloud API webhook (verify, then messages)
     POST /whatsapp                      Twilio webhook (form-encoded), replies with TwiML
     POST /chat                          JSON, for local testing without WhatsApp
+    GET  /demo                          WhatsApp-style browser demo (patient chat + reception panel)
     GET  /health
     GET  /admin/handoffs                open handoffs          (header X-Admin-Token)
     POST /admin/handoffs/{id}/release   give the chat back to the bot
@@ -13,9 +14,10 @@ import logging
 import re
 import time
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from clinic import config, handoff, llm, meta_whatsapp, whatsapp
@@ -105,6 +107,31 @@ async def whatsapp_webhook(request: Request) -> Response:
 
     result = _handle(phone, body, form.get("ProfileName", ""))
     return Response(whatsapp.twiml(result["answer"]), media_type="application/xml")
+
+
+# ---------------------------------------------------------------- browser demo
+# A WhatsApp-style page for demos without a WhatsApp account. Demo patients use fake "+999"
+# numbers (not a real country code), and these routes only show and release those chats.
+DEMO_PREFIX = "+999"
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.get("/demo", include_in_schema=False)
+def demo_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "demo.html")
+
+
+@app.get("/demo/handoffs", include_in_schema=False)
+def demo_handoffs() -> list[dict]:
+    return [h for h in handoff.open_handoffs(get_engine()) if h["phone"].startswith(DEMO_PREFIX)]
+
+
+@app.post("/demo/handoffs/{handoff_id}/release", include_in_schema=False)
+def demo_release(handoff_id: int) -> dict:
+    if not any(h["id"] == handoff_id for h in demo_handoffs()):
+        raise HTTPException(404, "no such demo handoff")
+    handoff.release(get_engine(), handoff_id, get_agent().clock())
+    return {"released": handoff_id}
 
 
 # ---------------------------------------------------------------- Meta WhatsApp Cloud API
