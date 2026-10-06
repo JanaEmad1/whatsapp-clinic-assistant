@@ -57,9 +57,42 @@ From `python -m eval.run` (66 hand-written Gulf-Arabic and English messages, LLM
 | Knowledge-base questions answered from the right article | **97.6%** |
 | **Wrong answers** (answered when it should have handed off, or from the wrong article) | **0** |
 
-The threshold (0.10) is the value with zero wrong answers and the most questions answered; the sweep is in the
-report. CI fails if a change brings back any wrong answer. Caveat: the threshold was tuned on the same 66
+<p align="center"><img src="docs/threshold_sweep.png" width="640" alt="Threshold sweep: below 0.09 the bot gives wrong answers; above 0.15 it hands off too many questions; 0.10 is used"></p>
+
+0.09 is the lowest threshold with zero wrong answers. 0.10 is used to keep one step of safety margin, because one
+step below 0.09 a wrong answer comes back. The margin costs one clinic question that is handed to reception instead
+of answered. The full sweep is in the report. CI fails if a change brings back any wrong answer. Caveat: the threshold was tuned on the same 66
 messages, so treat these numbers as optimistic until real chats are added.
+
+## Business impact
+
+**What a clinic gets:** a receptionist that answers WhatsApp at 11 pm on a Friday, books into the real calendar, and
+in the evaluation **never answered from information the clinic hadn't written down**. Anything it isn't sure about
+reaches a person, with an alert.
+
+An illustrative estimate. The automation rates come from the evaluation; the volumes are assumptions for a small
+two-doctor clinic:
+
+| Assumption | Value |
+|---|---|
+| WhatsApp conversations per day | 60 |
+| Share that are FAQs or booking/cancelling | 80% (the rest: symptoms, complaints → always a human) |
+| Receptionist time per conversation | 3 minutes |
+| Messages arriving outside opening hours | 30% |
+
+| Outcome | Calculation | Value |
+|---|---|---|
+| Conversations handled without staff | 60 × 80% × 97.6% | **≈ 47 / day** |
+| Reception time freed | 47 × 3 min × 26 working days | **≈ 61 hours / month** |
+| After-hours requests answered instantly instead of next morning | 47 × 30% | **≈ 14 / day** |
+
+The after-hours number matters most for revenue. A patient who messages at night and gets no reply often books
+elsewhere. Every conversion recovered from those ~14 nightly chats is direct income that a staffing cost estimate
+doesn't capture.
+
+**Why this design is sellable to a clinic:** the risk that stops clinics from using chatbots is a bot inventing a
+price or giving medical advice. Here, symptoms always go to a human, numbers are checked against the clinic's own
+facts, and the threshold is set from a measured *zero wrong answers* point, not a guess.
 
 ## Run it
 
